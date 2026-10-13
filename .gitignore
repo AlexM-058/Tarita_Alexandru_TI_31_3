@@ -1,2 +1,5 @@
 *.txt
 /Reuters
+bin/
+obj/
+.vs/
