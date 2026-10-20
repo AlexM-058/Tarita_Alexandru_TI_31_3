@@ -1,31 +1,46 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
 namespace WordFrequency
 {
     public class Extraction
     {
+        public static IEnumerable<string> ExtractClasses(XElement? metadata)
+        {
+            if (metadata == null) yield break;
+
+            foreach (var group in metadata.Elements("codes"))
+            {
+                string? className = (string?)group.Attribute("class");
+                if (string.IsNullOrWhiteSpace(className)) continue;
+
+                yield return className;
+                foreach (var element in group.Elements("code"))
+                {
+                    string? code = (string?)element.Attribute("code");
+                    if (!string.IsNullOrWhiteSpace(code)) yield return code;
+                }
+            }
+        }
+
         public static void Extract(string XMLFilePath, string OutputFilePath)
         {
           XDocument doc = XDocument.Load(XMLFilePath);
           var sb = new StringBuilder();
-          var classes = doc.Root?.Element("metadata")?
-              .Elements("codes")
-              .Select(element => (string?)element.Attribute("class"))
-              .OfType<string>()
-              .Where(value => !string.IsNullOrWhiteSpace(value))
-              ?? Enumerable.Empty<string>();
-          sb.AppendLine(string.Join(" ", classes));
-
-          XElement? title = doc.Root?.Element("title");
-          if (title != null)
+          var content = new List<string>();
+          content.Add(doc.Root?.Element("title")?.Value ?? string.Empty);
+          XElement? text = doc.Root?.Element("text");
+          if (text != null)
           {
-            sb.AppendLine(title.Value);
+            // Keep paragraph boundaries even when XML has no whitespace between tags.
+            content.AddRange(text.Nodes().Select(node => node is XElement element
+                ? element.Value
+                : (node as XText)?.Value ?? string.Empty));
           }
-          foreach (XElement element in doc.Descendants("p"))
-          {
-            sb.AppendLine(element.Value);
-          }
+          sb.AppendLine(Regex.Replace(string.Join(" ", content), @"\s+", " ").Trim());
+          foreach (string line in ExtractClasses(doc.Root?.Element("metadata")))
+              sb.AppendLine(line);
           File.WriteAllText(OutputFilePath, sb.ToString());
 
         }
