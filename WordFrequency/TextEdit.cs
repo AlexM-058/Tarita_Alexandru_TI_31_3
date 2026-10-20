@@ -55,14 +55,20 @@ namespace  WordFrequency
 
             foreach (string file in txtFiles)
             {
-                string text = File.ReadAllText(file);
+                string classesHeader;
+                string text;
+                using (var reader = new StreamReader(file))
+                {
+                    classesHeader = reader.ReadLine() ?? string.Empty;
+                    text = reader.ReadToEnd();
+                }
 
                 text = ToLowerCase(text);
                 text = RemovePunctuation(text);
                 text = RemoveStopWords(text);
                 text = StemWords(text);
 
-                File.WriteAllText(file, text);
+                File.WriteAllText(file, classesHeader + Environment.NewLine + text);
             }
 
             Console.WriteLine($"{folder}: {txtFiles.Length} fisiere procesate.");

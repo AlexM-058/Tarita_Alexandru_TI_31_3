@@ -9,6 +9,14 @@ namespace WordFrequency
         {
           XDocument doc = XDocument.Load(XMLFilePath);
           var sb = new StringBuilder();
+          var classes = doc.Root?.Element("metadata")?
+              .Elements("codes")
+              .Select(element => (string?)element.Attribute("class"))
+              .OfType<string>()
+              .Where(value => !string.IsNullOrWhiteSpace(value))
+              ?? Enumerable.Empty<string>();
+          sb.AppendLine(string.Join(" ", classes));
+
           XElement? title = doc.Root?.Element("title");
           if (title != null)
           {
