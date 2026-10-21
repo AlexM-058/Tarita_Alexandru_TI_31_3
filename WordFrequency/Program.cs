@@ -12,3 +12,4 @@ FeatureExtraction.SaveLocalVectors("output/Reuters_34/Testing", "output/vectors/
 FeatureExtraction.SaveLocalVectors("output/Reuters_7083", "output/vectors/Reuters_7083.txt");
 
 Console.WriteLine("Procesare finalizata.");
+// nu uitam sa folosim si sa abordam contractiile din limba engleza exista un fisier cu toate contractiile si forma lor extinsa, trebuie sa facem un replace inainte de a face tokenizarea.
