@@ -1,27 +1,7 @@
 namespace WordFrequency
 {
-    public static class FeatureExtraction
+    public static class GlobalVocabulary
     {
-        public static void SaveLocalVectors(string folder, string outputFile)
-        {
-            string[] files = Directory.GetFiles(folder, "*.txt", SearchOption.AllDirectories);
-            Array.Sort(files, StringComparer.Ordinal);
-
-            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputFile))!);
-            using var writer = new StreamWriter(outputFile, append: false);
-
-            foreach (string file in files)
-            {
-                var localVector = CreateLocalVector(file);
-                string document = Path.ChangeExtension(Path.GetRelativePath(folder, file), null);
-                string values = string.Join(" ", localVector.Select(entry => $"{entry.Key}:{entry.Value}"));
-                writer.WriteLine($"{document} # {values}");
-            }
-
-            Console.WriteLine($"{files.Length} vectori locali salvati in {outputFile}.");
-        }
-
-
         public static string[] CreateGlobalVector(params string[] folders)
         {
             var uniqueWords = new SortedSet<string>(StringComparer.Ordinal);
@@ -56,26 +36,8 @@ namespace WordFrequency
             return wordIndices;
         }
 
-        public static SortedDictionary<string, int> CreateLocalVector(string file)
+        public static void SaveGlobalVector(string[] globalVector, string outputFile)
         {
-            var frequencies = new SortedDictionary<string, int>(StringComparer.Ordinal);
-
-            // Metadata follows the first line and must not be counted as words.
-            using var reader = new StreamReader(file);
-            string text = reader.ReadLine() ?? string.Empty;
-
-            foreach (string word in text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
-            {
-                frequencies.TryGetValue(word, out int count);
-                frequencies[word] = count + 1;
-            }
-
-            return frequencies;
-        }
-
-        public static void SaveGlobalVector(string folder, string outputFile)
-        {
-            string[] globalVector = CreateGlobalVector(folder);
 
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputFile))!);
             using var writer = new StreamWriter(outputFile, append: false);
