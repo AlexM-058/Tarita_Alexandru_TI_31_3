@@ -38,6 +38,16 @@ namespace WordFrequency
             return frequencies;
         }
 
+        public static void SaveGlobalVector(string folder, string outputFile)
+        {
+            string[] globalVector = CreateGlobalVector(folder);
+
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputFile))!);
+            File.WriteAllLines(outputFile, globalVector);
+
+            Console.WriteLine($"Vector global cu {globalVector.Length} cuvinte unice salvat in {outputFile}.");
+        }
+
         public static string[] CreateGlobalVector(params string[] folders)
         {
             var uniqueWords = new SortedSet<string>(StringComparer.Ordinal);
