@@ -21,6 +21,41 @@ namespace WordFrequency
             Console.WriteLine($"{files.Length} vectori locali salvati in {outputFile}.");
         }
 
+
+        public static string[] CreateGlobalVector(params string[] folders)
+        {
+            var uniqueWords = new SortedSet<string>(StringComparer.Ordinal);
+
+            foreach (string folder in folders)
+            {
+                foreach (string file in Directory.EnumerateFiles(folder, "*.txt", SearchOption.AllDirectories))
+                {
+                    // Only the first line contains article text; the rest is metadata.
+                    using var reader = new StreamReader(file);
+                    string text = reader.ReadLine() ?? string.Empty;
+
+                    foreach (string word in text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        uniqueWords.Add(word);
+                    }
+                }
+            }
+
+            return uniqueWords.ToArray();
+        }
+
+        public static Dictionary<string, int> CreateGlobalWordIndices(string[] globalVector)
+        {
+            var wordIndices = new Dictionary<string, int>(StringComparer.Ordinal);
+
+            for (int index = 0; index < globalVector.Length; index++)
+            {
+                wordIndices.Add(globalVector[index], index);
+            }
+
+            return wordIndices;
+        }
+
         public static SortedDictionary<string, int> CreateLocalVector(string file)
         {
             var frequencies = new SortedDictionary<string, int>(StringComparer.Ordinal);
@@ -43,31 +78,13 @@ namespace WordFrequency
             string[] globalVector = CreateGlobalVector(folder);
 
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputFile))!);
-            File.WriteAllLines(outputFile, globalVector);
-
-            Console.WriteLine($"Vector global cu {globalVector.Length} cuvinte unice salvat in {outputFile}.");
-        }
-
-        public static string[] CreateGlobalVector(params string[] folders)
-        {
-            var uniqueWords = new SortedSet<string>(StringComparer.Ordinal);
-
-            foreach (string folder in folders)
+            using var writer = new StreamWriter(outputFile, append: false);
+            for (int index = 0; index < globalVector.Length; index++)
             {
-                foreach (string file in Directory.EnumerateFiles(folder, "*.txt", SearchOption.AllDirectories))
-                {
-                    // Only the first line contains article text; the rest is metadata.
-                    using var reader = new StreamReader(file);
-                    string text = reader.ReadLine() ?? string.Empty;
-
-                    foreach (string word in text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
-                    {
-                        uniqueWords.Add(word);
-                    }
-                }
+                writer.WriteLine($"{index}:{globalVector[index]}");
             }
 
-            return uniqueWords.ToArray();
+            Console.WriteLine($"Vector global cu {globalVector.Length} cuvinte unice salvat in {outputFile}.");
         }
     }
 }
