@@ -1,4 +1,5 @@
 *.txt
+!/WordFrequency/stopwords.txt
 /Reuters
 bin/
 obj/
