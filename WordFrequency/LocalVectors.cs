@@ -32,7 +32,7 @@ namespace WordFrequency
                 string outputFile = Path.Combine(outputFolder, Path.GetRelativePath(folder, file));
                 Directory.CreateDirectory(Path.GetDirectoryName(outputFile)!);
                 string values = string.Join(" ", localVector.Select(entry => $"{entry.Key}:{entry.Value}"));
-                File.WriteAllText(outputFile, values + Environment.NewLine);
+                File.WriteAllText(outputFile, values + VectorMetadata.CreateSuffix(file) + Environment.NewLine);
             }
 
             Console.WriteLine($"{files.Length} vectori locali salvati in {outputFolder}.");
