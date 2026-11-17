@@ -15,7 +15,8 @@ namespace WordFrequency
                 var rareVector = new SortedDictionary<int, int>();
                 foreach (var entry in LocalVectors.CreateLocalVector(file))
                 {
-                    rareVector.Add(wordIndices[entry.Key], entry.Value);
+                    if (wordIndices.TryGetValue(entry.Key, out int index))
+                        rareVector.Add(index, entry.Value);
                 }
 
                 string outputFile = Path.Combine(outputFolder, Path.GetRelativePath(folder, file));
