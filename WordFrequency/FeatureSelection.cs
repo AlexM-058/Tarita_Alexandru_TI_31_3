@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Xml.Linq;
 
 namespace WordFrequency
 {
@@ -35,9 +34,9 @@ namespace WordFrequency
                 }
 
                 string[] sections = line.Split('#', StringSplitOptions.TrimEntries);
-                if (sections.Length != 3 || sections[1].Length == 0
-                    || (sections[2] != "train" && sections[2] != "test"))
-                    throw new InvalidDataException($"{inputFile}:{lineNumber}: asteptat vector # clasa # train/test.");
+                if ((sections.Length != 2 && sections.Length != 3) || sections[1].Length == 0
+                    || (sections.Length == 3 && sections[2] != "train" && sections[2] != "test"))
+                    throw new InvalidDataException($"{inputFile}:{lineNumber}: asteptat vector # clase [# train/test].");
 
                 var frequencies = new Dictionary<string, int>(StringComparer.Ordinal);
                 foreach (string entry in sections[0].Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
@@ -49,7 +48,10 @@ namespace WordFrequency
                         || !frequencies.TryAdd(features[index - 1].Word, count))
                         throw new InvalidDataException($"{inputFile}:{lineNumber}: indice sau frecventa invalida.");
                 }
-                documents.Add(new LabeledDocument(sections[1], sections[2] == "train", frequencies));
+                string[] classes = sections[1].Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+                    .Distinct(StringComparer.Ordinal).ToArray();
+                // Un fisier fara marcaje reprezinta un singur set analizat integral.
+                documents.Add(new LabeledDocument(classes, sections.Length == 2 || sections[2] == "train", frequencies));
             }
             if (!readingData)
                 throw new InvalidDataException($"{inputFile}: lipseste sectiunea @data.");
@@ -71,25 +73,16 @@ namespace WordFrequency
             foreach (string line in dataLines) writer.WriteLine(line);
         }
 
-        public static LabeledDocument[] LoadDocuments(string xmlFolder, string textFolder,
-            bool isTraining, string targetTopic)
+        public static LabeledDocument[] LoadDocuments(string textFolder, bool isTraining)
         {
             var documents = new List<LabeledDocument>();
-            foreach (string file in Directory.GetFiles(xmlFolder, "*.xml").Order(StringComparer.Ordinal))
+            foreach (string file in Directory.GetFiles(textFolder, "*.txt").Order(StringComparer.Ordinal))
             {
-                XElement? metadata = XDocument.Load(file).Root?.Element("metadata");
-                string[] topics = metadata?.Elements("codes")
-                    .Where(group => (string?)group.Attribute("class") == "bip:topics:1.0")
-                    .SelectMany(group => group.Elements("code"))
-                    .Select(code => (string?)code.Attribute("code"))
-                    .Where(code => !string.IsNullOrWhiteSpace(code)).Select(code => code!).ToArray()
-                    ?? [];
+                string[] topics = VectorMetadata.ReadTopics(file);
                 if (topics.Length == 0)
                     throw new InvalidDataException($"Missing topic labels: {file}");
-                string id = Path.GetFileNameWithoutExtension(file);
-                string className = topics.Contains(targetTopic) ? targetTopic : $"not_{targetTopic}";
-                var frequencies = LocalVectors.CreateLocalVector(Path.Combine(textFolder, id + ".txt"));
-                documents.Add(new LabeledDocument(className, isTraining, frequencies));
+                var frequencies = LocalVectors.CreateLocalVector(file);
+                documents.Add(new LabeledDocument(topics, isTraining, frequencies));
             }
             return documents.ToArray();
         }
@@ -112,49 +105,31 @@ namespace WordFrequency
                         values.Add($"{index + 1}:{count}");
                 }
                 string split = includeSplit ? $" # {(document.IsTraining ? "train" : "test")}" : "";
-                writer.WriteLine($"{string.Join(" ", values)} # {document.ClassName}{split}");
+                writer.WriteLine($"{string.Join(" ", values)} # {string.Join(" ", document.Classes)}{split}");
             }
         }
 
-        public static void Run(string[] trainingVocabulary, string targetTopic, double minimumGain, int? topK)
+        public static void Run(double minimumGain)
         {
-            LabeledDocument[] documents = LoadDocuments("../Reuters/Reuters_34/Training",
-                "output/Reuters_34/Training", true, targetTopic)
-                .Concat(LoadDocuments("../Reuters/Reuters_34/Testing",
-                    "output/Reuters_34/Testing", false, targetTopic)).ToArray();
-            int classCount = documents.Where(document => document.IsTraining)
-                .Select(document => document.ClassName).Distinct(StringComparer.Ordinal).Count();
-            if (classCount < 2)
-                throw new InvalidOperationException($"Topic {targetTopic} must have positive and negative training examples.");
-
-            string outputFolder = $"output/selection/{targetTopic}";
-            string originalFile = Path.Combine(outputFolder, "original.txt");
-            string scoredFile = Path.Combine(outputFolder, "scored.txt");
-            SaveDataset(originalFile, trainingVocabulary.Select(word => new FeatureScore(word, 0)).ToArray(),
-                documents, true);
-            CalculateGain(originalFile, scoredFile);
-            SelectFeatures(scoredFile, outputFolder, minimumGain, topK);
+            string[] sets = ["Reuters_7083", "Reuters_34/Training", "Reuters_34/Testing"];
+            foreach (string set in sets)
+            {
+                string outputFolder = $"output/selection/{set}";
+                LabeledDocument[] documents = LoadDocuments($"output/{set}", true);
+                string[] vocabulary = GlobalVocabulary.CreateGlobalVector($"output/{set}");
+                string originalFile = Path.Combine(outputFolder, "original.txt");
+                string scoredFile = Path.Combine(outputFolder, "scored.txt");
+                SaveDataset(originalFile, vocabulary.Select(word => new FeatureScore(word, 0)).ToArray(),
+                    documents, false);
+                CalculateGain(originalFile, scoredFile);
+                FeatureScore[] scores = ReadDataset(scoredFile).Features;
+                FeatureScore[] selected = InformationGain.SelectByMinimumGain(scores, minimumGain);
+                SaveDataset(Path.Combine(outputFolder, "selected.txt"), selected, documents, false);
+                File.WriteAllLines(Path.Combine(outputFolder, "vocabulary.txt"),
+                    selected.Select((score, index) => $"{index + 1}:{score.Word}"));
+                Console.WriteLine($"{set}: {documents.Length} documente, {selected.Length}/{scores.Length} atribute selectate.");
+            }
         }
 
-        public static void SelectFeatures(string inputFile, string outputFolder, double minimumGain, int? topK)
-        {
-            var dataset = ReadDataset(inputFile);
-            FeatureScore[] scores = dataset.Features;
-            LabeledDocument[] documents = dataset.Documents;
-            FeatureScore[] selected = topK.HasValue
-                ? InformationGain.SelectTopK(scores, topK.Value)
-                : InformationGain.SelectByMinimumGain(scores, minimumGain);
-            SaveDataset(Path.Combine(outputFolder, "training.txt"), selected,
-                documents.Where(document => document.IsTraining), false);
-            SaveDataset(Path.Combine(outputFolder, "testing.txt"), selected,
-                documents.Where(document => !document.IsTraining), false);
-            File.WriteAllLines(Path.Combine(outputFolder, "vocabulary.txt"),
-                selected.Select((score, index) => $"{index + 1}:{score.Word}"));
-            Console.WriteLine($"IG: {selected.Length}/{scores.Length} trasaturi selectate. Rezultate: {outputFolder}");
-            foreach (FeatureScore score in scores.OrderByDescending(score => score.Gain).Take(10))
-                Console.WriteLine($"  {score.Word}: {score.Gain.ToString("F6", CultureInfo.InvariantCulture)}");
-            if (selected.Length == 0)
-                Console.WriteLine("Pragul nu a pastrat cuvinte. Reduceti --min-gain sau folositi --top-k.");
-        }
     }
 }

@@ -1,6 +1,6 @@
 namespace WordFrequency
 {
-    public record LabeledDocument(string ClassName, bool IsTraining,
+    public record LabeledDocument(string[] Classes, bool IsTraining,
         IReadOnlyDictionary<string, int> Frequencies);
 
     public record FeatureScore(string Word, double Gain);
@@ -31,29 +31,43 @@ namespace WordFrequency
             if (training.Length == 0)
                 throw new ArgumentException("At least one training document is required.");
 
-            double initialEntropy = CalculateEntropy(training.GroupBy(document => document.ClassName)
-                .Select(group => group.Count()));
+            if (training.Any(document => document.Classes.Length == 0))
+                throw new ArgumentException("Fiecare document Training trebuie sa aiba cel putin o clasa.");
+            string[] classes = training.SelectMany(document => document.Classes)
+                .Distinct(StringComparer.Ordinal).ToArray();
+            var classIndices = classes.Select((name, index) => (name, index))
+                .ToDictionary(entry => entry.name, entry => entry.index, StringComparer.Ordinal);
+            var classTotals = new int[classes.Length];
+            var presentCounts = vocabulary.ToDictionary(word => word, _ => new int[classes.Length], StringComparer.Ordinal);
+
+            // Numaram o singura data documentele si clasele pentru fiecare cuvant.
+            foreach (LabeledDocument document in training)
+            {
+                int[] documentClasses = document.Classes.Distinct(StringComparer.Ordinal)
+                    .Select(name => classIndices[name]).ToArray();
+                foreach (int index in documentClasses) classTotals[index]++;
+                foreach (var entry in document.Frequencies)
+                {
+                    if (entry.Value <= 0 || !presentCounts.TryGetValue(entry.Key, out int[]? counts)) continue;
+                    foreach (int index in documentClasses) counts[index]++;
+                }
+            }
+
+            // Esantionul este perechea document-topic. Cu o clasa pe document,
+            // numarul perechilor este chiar numarul documentelor, ca in laborator.
+            double total = classTotals.Sum(count => (double)count);
+            double initialEntropy = CalculateEntropy(classTotals);
             var scores = new List<FeatureScore>();
             foreach (string word in vocabulary)
             {
-                var present = new List<LabeledDocument>();
-                var absent = new List<LabeledDocument>();
-                foreach (LabeledDocument document in training)
-                {
-                    // O aparitie sau zece aparitii inseamna acelasi lucru: prezent.
-                    if (document.Frequencies.TryGetValue(word, out int count) && count > 0)
-                        present.Add(document);
-                    else
-                        absent.Add(document);
-                }
-
-                double presentEntropy = CalculateEntropy(present.GroupBy(document => document.ClassName)
-                    .Select(group => group.Count()));
-                double absentEntropy = CalculateEntropy(absent.GroupBy(document => document.ClassName)
-                    .Select(group => group.Count()));
+                double present = presentCounts[word].Sum(count => (double)count);
+                double absent = total - present;
+                int[] absentCounts = classTotals.Select((total, index) => total - presentCounts[word][index]).ToArray();
+                double presentEntropy = CalculateEntropy(presentCounts[word]);
+                double absentEntropy = CalculateEntropy(absentCounts);
                 double gain = initialEntropy
-                    - (double)present.Count / training.Length * presentEntropy
-                    - (double)absent.Count / training.Length * absentEntropy;
+                    - present / total * presentEntropy
+                    - absent / total * absentEntropy;
                 scores.Add(new FeatureScore(word, Math.Max(0, gain)));
             }
             return scores.ToArray();
@@ -67,12 +81,5 @@ namespace WordFrequency
                 .OrderBy(score => score.Word, StringComparer.Ordinal).ToArray();
         }
 
-        public static FeatureScore[] SelectTopK(IEnumerable<FeatureScore> scores, int count)
-        {
-            if (count <= 0) throw new ArgumentOutOfRangeException(nameof(count));
-            return scores.OrderByDescending(score => score.Gain)
-                .ThenBy(score => score.Word, StringComparer.Ordinal).Take(count)
-                .OrderBy(score => score.Word, StringComparer.Ordinal).ToArray();
-        }
     }
 }

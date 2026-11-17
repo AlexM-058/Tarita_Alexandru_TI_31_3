@@ -4,6 +4,11 @@ namespace WordFrequency
     {
         public static string CreateSuffix(string articleFile)
         {
+            return $" # {string.Join(" ", ReadTopics(articleFile))}";
+        }
+
+        public static string[] ReadTopics(string articleFile)
+        {
             var topics = new List<string>();
             bool inTopics = false;
             using var reader = new StreamReader(articleFile);
@@ -25,7 +30,7 @@ namespace WordFrequency
                 }
             }
 
-            return $" # {string.Join(" ", topics.Distinct(StringComparer.Ordinal))}";
+            return topics.Distinct(StringComparer.Ordinal).ToArray();
         }
     }
 }
