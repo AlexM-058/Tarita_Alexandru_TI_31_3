@@ -111,24 +111,27 @@ namespace WordFrequency
 
         public static void Run(double minimumGain)
         {
-            string[] sets = ["Reuters_7083", "Reuters_34/Training", "Reuters_34/Testing"];
-            foreach (string set in sets)
-            {
-                string outputFolder = $"output/selection/{set}";
-                LabeledDocument[] documents = LoadDocuments($"output/{set}", true);
-                string[] vocabulary = GlobalVocabulary.CreateGlobalVector($"output/{set}");
-                string originalFile = Path.Combine(outputFolder, "original.txt");
-                string scoredFile = Path.Combine(outputFolder, "scored.txt");
-                SaveDataset(originalFile, vocabulary.Select(word => new FeatureScore(word, 0)).ToArray(),
-                    documents, false);
-                CalculateGain(originalFile, scoredFile);
-                FeatureScore[] scores = ReadDataset(scoredFile).Features;
-                FeatureScore[] selected = InformationGain.SelectByMinimumGain(scores, minimumGain);
-                SaveDataset(Path.Combine(outputFolder, "selected.txt"), selected, documents, false);
-                File.WriteAllLines(Path.Combine(outputFolder, "vocabulary.txt"),
-                    selected.Select((score, index) => $"{index + 1}:{score.Word}"));
-                Console.WriteLine($"{set}: {documents.Length} documente, {selected.Length}/{scores.Length} atribute selectate.");
-            }
+            string outputFolder = "output/selection/laborator3";
+            LabeledDocument[] documents = LoadDocuments("output/Reuters_34/Training", true)
+                .Concat(LoadDocuments("output/Reuters_34/Testing", false)).ToArray();
+            string[] vocabulary = GlobalVocabulary.CreateGlobalVector(
+                "output/Reuters_34/Training", "output/Reuters_34/Testing");
+            string originalFile = Path.Combine(outputFolder, "original.txt");
+            SaveDataset(originalFile, vocabulary.Select(word => new FeatureScore(word, 0)).ToArray(),
+                documents, true);
+            ProcessDataset(originalFile, outputFolder, minimumGain);
+        }
+
+        public static void ProcessDataset(string inputFile, string outputFolder, double minimumGain)
+        {
+            string scoredFile = Path.Combine(outputFolder, "scored.txt");
+            CalculateGain(inputFile, scoredFile);
+            var dataset = ReadDataset(scoredFile);
+            FeatureScore[] selected = InformationGain.SelectByMinimumGain(dataset.Features, minimumGain);
+            SaveDataset(Path.Combine(outputFolder, "training.txt"), selected,
+                dataset.Documents.Where(document => document.IsTraining), false);
+            SaveDataset(Path.Combine(outputFolder, "testing.txt"), selected,
+                dataset.Documents.Where(document => !document.IsTraining), false);
         }
 
     }

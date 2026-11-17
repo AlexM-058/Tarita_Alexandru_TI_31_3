@@ -46,7 +46,6 @@ namespace WordFrequency
                 writer.WriteLine($"{index}:{globalVector[index]}");
             }
 
-            Console.WriteLine($"Vector global cu {globalVector.Length} cuvinte unice salvat in {outputFile}.");
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -10,7 +10,7 @@ namespace WordFrequency
     {
         // The passed in word turned into a char array. 
         // Quicker to use to rebuilding strings each time a change is made.
-        private char[] wordArray;
+        private char[] wordArray = [];
 
         // Current index to the end of the word in the character array. This will
         // change as the end of the string gets modified.

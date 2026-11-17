@@ -27,13 +27,13 @@ namespace WordFrequency
         public static FeatureScore[] Calculate(IReadOnlyList<LabeledDocument> documents,
             IReadOnlyList<string> vocabulary)
         {
-            LabeledDocument[] training = documents.Where(document => document.IsTraining).ToArray();
-            if (training.Length == 0)
-                throw new ArgumentException("At least one training document is required.");
+            LabeledDocument[] samples = documents.ToArray();
+            if (samples.Length == 0)
+                throw new ArgumentException("Este necesar cel putin un document.");
 
-            if (training.Any(document => document.Classes.Length == 0))
-                throw new ArgumentException("Fiecare document Training trebuie sa aiba cel putin o clasa.");
-            string[] classes = training.SelectMany(document => document.Classes)
+            if (samples.Any(document => document.Classes.Length == 0))
+                throw new InvalidDataException("Fiecare document trebuie sa aiba cel putin o clasa.");
+            string[] classes = samples.SelectMany(document => document.Classes)
                 .Distinct(StringComparer.Ordinal).ToArray();
             var classIndices = classes.Select((name, index) => (name, index))
                 .ToDictionary(entry => entry.name, entry => entry.index, StringComparer.Ordinal);
@@ -41,7 +41,7 @@ namespace WordFrequency
             var presentCounts = vocabulary.ToDictionary(word => word, _ => new int[classes.Length], StringComparer.Ordinal);
 
             // Numaram o singura data documentele si clasele pentru fiecare cuvant.
-            foreach (LabeledDocument document in training)
+            foreach (LabeledDocument document in samples)
             {
                 int[] documentClasses = document.Classes.Distinct(StringComparer.Ordinal)
                     .Select(name => classIndices[name]).ToArray();
@@ -53,8 +53,8 @@ namespace WordFrequency
                 }
             }
 
-            // Esantionul este perechea document-topic. Cu o clasa pe document,
-            // numarul perechilor este chiar numarul documentelor, ca in laborator.
+            // Distributia tuturor atribuirilor document-topic, nu media entropiilor binare.
+            // Cu o clasa per document, totalul coincide cu numarul documentelor.
             double total = classTotals.Sum(count => (double)count);
             double initialEntropy = CalculateEntropy(classTotals);
             var scores = new List<FeatureScore>();

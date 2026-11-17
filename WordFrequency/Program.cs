@@ -1,19 +1,14 @@
 using WordFrequency;
 
-// Pastram cuvintele cu gain >= acest prag, separat pentru fiecare set.
+// Pragul de selectie; 0.5 este valoarea folosita in exemplul laboratorului.
 double minimumGain = 0.01;
-
-Extraction.ProcessFolder("../Reuters/Reuters_34/Training", "output/Reuters_34/Training");
-TextEdit.ProcessFolder("output/Reuters_34/Training");
-Extraction.ProcessFolder("../Reuters/Reuters_34/Testing", "output/Reuters_34/Testing");
-TextEdit.ProcessFolder("output/Reuters_34/Testing");
-Extraction.ProcessFolder("../Reuters/Reuters_7083", "output/Reuters_7083");
-TextEdit.ProcessFolder("output/Reuters_7083");
-
 string[] sets = ["Reuters_34/Training", "Reuters_34/Testing", "Reuters_7083"];
+
 foreach (string set in sets)
 {
     string folder = $"output/{set}";
+    Extraction.ProcessFolder($"../Reuters/{set}", folder);
+    TextEdit.ProcessFolder(folder);
     string[] vocabulary = GlobalVocabulary.CreateGlobalVector(folder);
     LocalVectors.SaveLocalVectors(folder, $"output/vectors/local/{set}");
     RareVectors.SaveRareVectors(folder, $"output/vectors/rari/{set}", vocabulary);
@@ -22,4 +17,11 @@ foreach (string set in sets)
 }
 
 FeatureSelection.Run(minimumGain);
-Console.WriteLine("Procesare finalizata. Rezultatele sunt in output/selection.");
+
+double reuters34Entropy = InformationGain.CalculateEntropy(
+    VectorMetadata.CountTopics("output/Reuters_34/Training", "output/Reuters_34/Testing").Values);
+double archiveEntropy = InformationGain.CalculateEntropy(
+    VectorMetadata.CountTopics("output/Reuters_7083").Values);
+
+Console.WriteLine(FormattableString.Invariant($"Entropie Reuters_34 (distributia codurilor): {reuters34Entropy:F6} biti"));
+Console.WriteLine(FormattableString.Invariant($"Entropie Reuters_7083 (distributia codurilor): {archiveEntropy:F6} biti"));

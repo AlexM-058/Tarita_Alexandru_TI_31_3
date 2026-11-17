@@ -35,7 +35,6 @@ namespace WordFrequency
                 File.WriteAllText(outputFile, values + VectorMetadata.CreateSuffix(file) + Environment.NewLine);
             }
 
-            Console.WriteLine($"{files.Length} vectori locali salvati in {outputFolder}.");
         }
     }
 }

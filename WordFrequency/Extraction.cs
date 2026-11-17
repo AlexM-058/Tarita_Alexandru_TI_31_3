@@ -50,10 +50,6 @@ namespace WordFrequency
             Directory.CreateDirectory(folderTxt);
 
             string[] xmlFiles = Directory.GetFiles(folderXml, "*.xml");
-            Console.WriteLine($"{folderXml}: {xmlFiles.Length} fisiere XML.");
-
-            int ok = 0;
-            int erori = 0;
 
             foreach (string caleXml in xmlFiles)
             {
@@ -63,16 +59,13 @@ namespace WordFrequency
                 try
                 {
                     Extract(caleXml, caleTxt);
-                    ok++;
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Eroare la {nume}: {ex.Message}");
-                    erori++;
+                    throw new InvalidDataException($"Eroare la procesarea {caleXml}.", ex);
                 }
             }
 
-            Console.WriteLine($"  -> {ok} ok, {erori} erori, salvate in {folderTxt}");
         }
     }
 }

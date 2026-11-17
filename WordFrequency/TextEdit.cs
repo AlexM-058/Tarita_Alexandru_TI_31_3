@@ -71,7 +71,6 @@ namespace  WordFrequency
                 File.WriteAllText(file, text + Environment.NewLine + metadata);
             }
 
-            Console.WriteLine($"{folder}: {txtFiles.Length} fisiere procesate.");
         }
     }
 }

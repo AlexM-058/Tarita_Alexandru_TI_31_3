@@ -2,6 +2,20 @@ namespace WordFrequency
 {
     public static class VectorMetadata
     {
+        public static Dictionary<string, int> CountTopics(params string[] folders)
+        {
+            var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (string folder in folders)
+            {
+                foreach (string file in Directory.GetFiles(folder, "*.txt"))
+                {
+                    foreach (string topic in ReadTopics(file))
+                        counts[topic] = counts.GetValueOrDefault(topic) + 1;
+                }
+            }
+            return counts;
+        }
+
         public static string CreateSuffix(string articleFile)
         {
             return $" # {string.Join(" ", ReadTopics(articleFile))}";
